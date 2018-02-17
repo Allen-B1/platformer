@@ -40,10 +40,6 @@ Game.prototype.draw = function(thing) {
 Game.prototype.update = function() {
 	var self = this;
 	this.objects.forEach(function(thing) {
-		if(!(thing instanceof MovableThing) && this.player !== null) {
-			var dir = MovableThing.colCheck(this.player, thing);
-			this.player.ontouch(dir);
-		}
 		if(typeof thing.update === "function") {
 			thing.update(self.keys);
 		}
@@ -125,10 +121,11 @@ MovableThing.prototype.update = function(keys) {
 	this.vel_x *= 0.8;
 	this.vel_y += 0.2;
 	if(this.grounded) {
-		this.vel_y = 0;
+		this.vel_y = Math.min(this.vel_y, 0);
 	}
 	this.x += this.vel_x;
 	this.y += this.vel_y;
+	this.touch_check();
 }
 Object.defineProperty(MovableThing.prototype, "is_player", {
 	get: function() {
@@ -136,52 +133,38 @@ Object.defineProperty(MovableThing.prototype, "is_player", {
 	}
 });
 
-MovableThing.prototype.ontouch = function(dir) {
+MovableThing.prototype.touch_check = function() {
+	var self = this;
+	var dir;
+	this.game.objects.forEach(function(obj) {
+		if(obj === self) return;
+		dir = dir || self.col_check(obj);
+	});
+	self.grounded = false;
 	if (dir === "l" || dir === "r") {
-		this.vel_x = 0;
-		this.jumping = false;
+		self.vel_x = 0;
+		self.jumping = false;
 	} else if (dir === "b") {
-		this.grounded = true;
-		this.jumping = false;
+		self.grounded = true;
+		self.jumping = false;
 	} else if (dir === "t") {
-		player.vel_y *= -1;
+		self.vel_y *= -1;
 	}
+
 }
 
-/* Thanks Loktar! http://www.somethinghitme.com/2013/04/16/creating-a-canvas-platformer-tutorial-part-tw/ */
-MovableThing.colCheck = function(shapeA, shapeB) {
-    // get the vectors to check against
-    var vX = (shapeA.x + (shapeA.w / 2)) - (shapeB.x + (shapeB.w / 2)),
-        vY = (shapeA.y + (shapeA.h / 2)) - (shapeB.y + (shapeB.h / 2)),
-        // add the half widths and half heights of the objects
-        hWidths = (shapeA.w / 2) + (shapeB.w / 2),
-        hHeights = (shapeA.h / 2) + (shapeB.h / 2),
-        colDir = null;
- 
-    // if the x and y vector are less than the half width or half height, they we must be inside the object, causing a collision
-    if (Math.abs(vX) < hWidths && Math.abs(vY) < hHeights) {         // figures out on which side we are colliding (top, bottom, left, or right)        
-		console.log("Touching!");
-	var oX = hWidths - Math.abs(vX),
-		oY = hHeights - Math.abs(vY);
-		if (oX >= oY) {
-            if (vY > 0) {
-                colDir = "t";
-                shapeA.y += oY;
-            } else {
-                colDir = "b";
-                shapeA.y -= oY;
-            }
-        } else {
-            if (vX > 0) {
-                colDir = "l";
-                shapeA.x += oX;
-            } else {
-                colDir = "r";
-                shapeA.x -= oX;
-            }
-        }
-    }
-    return colDir;
+MovableThing.prototype.col_check = function(obj) {
+	var b = obj.y + obj.h,
+		r = obj.x + obj.w;
+
+	if(this.y + this.h > obj.y &&
+		this.y < obj.y + obj.h &&
+		this.x < obj.x + obj.w &&
+		this.x + this.w > obj.x) {
+		this.y = obj.y - this.h;
+		console.log(this.y + " r " +  r);
+		return "b";
+	}
 }
 
 var game = new Game(canvas.getContext("2d"));
